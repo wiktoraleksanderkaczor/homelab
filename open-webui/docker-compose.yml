@@ -1,0 +1,69 @@
+
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    volumes:
+      - ./data/open-webui/data:/app/backend/data
+    ports:
+      - 9090:9090
+    env_file: 
+      - .env
+    network_mode: host
+    environment:
+      - ENABLE_SIGNUP=false
+      - ENABLE_OLLAMA_API=true
+      - OLLAMA_BASE_URL=http://localhost:11434
+      - PORT=9090
+      - WEB_LOADER_ENGINE=playwright
+      - WHISPER_VAD_FILTER=true
+      - WHISPER_MODEL_AUTO_UPDATE=true
+      - RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE=true
+      - RAG_RERANKING_MODEL_TRUST_REMOTE_CODE=true
+      - RAG_EMBEDDING_MODEL_AUTO_UPDATE=true
+      - RAG_RERANKING_MODEL_AUTO_UPDATE=true
+      - ENABLE_CODE_EXECUTION=false
+      - ENABLE_CODE_INTERPRETER=true
+      - ENABLE_WEB_SEARCH=true
+      - ENABLE_RAG_WEB_SEARCH=true
+      - ENABLE_RAG_LOCAL_WEB_FETCH=true
+      - ENABLE_SEARCH_QUERY=true
+      - ENABLE_IMAGE_GENERATION=false
+      - ENABLE_TAGS_GENERATION=false
+      - ENABLE_RAG_HYBRID_SEARCH=true
+      - RAG_WEB_SEARCH_ENGINE=searxng
+      - VECTOR_DB=milvus
+      - RAG_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - RAG_RERANKING_MODEL=BAAI/bge-reranker-v2-m3
+      - SEARXNG_QUERY_URL=http://localhost:8080/search?q=<query>
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data/searxng:/etc/searxng
+    restart: unless-stopped
+
+  ollama:
+    volumes:
+      - ./data/ollama/data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q4_0
+      - OLLAMA_NUM_PARALLEL=1
+    ports:
+      - 11434:11434
+    tty: true
+    restart: unless-stopped
+    image: ollama/ollama:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
