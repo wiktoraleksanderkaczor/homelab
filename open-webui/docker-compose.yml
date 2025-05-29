@@ -1,4 +1,3 @@
-
 services:
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
@@ -6,7 +5,7 @@ services:
       - ./data/open-webui/data:/app/backend/data
     ports:
       - 9090:9090
-    env_file: 
+    env_file:
       - .env
     network_mode: host
     environment:
@@ -31,17 +30,21 @@ services:
       - ENABLE_TAGS_GENERATION=false
       - ENABLE_RAG_HYBRID_SEARCH=true
       - RAG_WEB_SEARCH_ENGINE=searxng
-      - VECTOR_DB=milvus
+      - VECTOR_DB=qdrant
+      - QDRANT_URI=http://localhost:6333
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - QDRANT_ON_DISK=true
       - RAG_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
       - RAG_RERANKING_MODEL=BAAI/bge-reranker-v2-m3
       - SEARXNG_QUERY_URL=http://localhost:8080/search?q=<query>
+      - AIOHTTP_CLIENT_TIMEOUT=1800
     restart: unless-stopped
 
   searxng:
     image: searxng/searxng:latest
     container_name: searxng
     ports:
-      - "8080:8080"
+      - 8080:8080
     volumes:
       - ./data/searxng:/etc/searxng
     restart: unless-stopped
@@ -53,7 +56,7 @@ services:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_MAX_LOADED_MODELS=1
       - OLLAMA_FLASH_ATTENTION=1
-      - OLLAMA_KV_CACHE_TYPE=q4_0
+      - OLLAMA_KV_CACHE_TYPE=Q8_0
       - OLLAMA_NUM_PARALLEL=1
     ports:
       - 11434:11434
@@ -66,4 +69,54 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities:
+                - gpu
+
+  openhands-app:
+    image: docker.all-hands.dev/all-hands-ai/openhands:0.39
+    container_name: openhands-app
+    pull_policy: always
+    environment:
+      - SANDBOX_RUNTIME_CONTAINER_IMAGE=docker.all-hands.dev/all-hands-ai/runtime:0.39-nikolaik
+      - LOG_ALL_EVENTS=true
+      # Add the SANDBOX_VOLUMES environment variable here
+      # Replace /path/to/your/code with the actual path on your host
+      # and adjust the container path and mode as needed.
+      # Example: Mounting your home directory's 'my_project' folder to /workspace
+      - SANDBOX_VOLUMES=/mnt/array/Erebor/Projects/OpenHands:/workspace:rw
+      # Example: Mounting a read-only reference data folder
+      # - SANDBOX_VOLUMES=/home/wiktor/my_project:/workspace:rw,/path/to/reference/data:/data:ro
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ~/.openhands-state:/.openhands-state
+      - /mnt/array/Erebor/Projects/OpenHands:/workspace
+    ports:
+      - "9850:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: always
+    container_name: qdrant
+    ports:
+      - 6333:6333
+      - 6334:6334
+    expose:
+      - 6333
+      - 6334
+      - 6335
+    env_file:
+      - .env
+    environment:
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY}
+    configs:
+      - source: qdrant_config
+        target: /qdrant/config/production.yaml
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+
+configs:
+  qdrant_config:
+    content: |
+      log_level: INFO
