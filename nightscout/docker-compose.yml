@@ -1,8 +1,7 @@
-x-logging:
-  &default-logging
+x-logging: &default-logging
   options:
-    max-size: '10m'
-    max-file: '5'
+    max-size: "10m"
+    max-file: "5"
   driver: json-file
 
 services:
@@ -25,7 +24,7 @@ services:
     depends_on:
       - nightscout_mongo
     ports:
-      - '1337:1337'
+      - "1337:1337"
     logging: *default-logging
     networks:
       - nightscout-network
@@ -38,7 +37,7 @@ services:
       # The `nightscout` service can use HTTP, because we use `traefik` to serve the HTTPS
       # and manage TLS certificates
       # PERSONAL: CLOUDFLARE TUNNEL.
-      INSECURE_USE_HTTP: 'true'
+      INSECURE_USE_HTTP: "true"
 
       # For all other settings, please refer to the Environment section of the README
       ### Required variables

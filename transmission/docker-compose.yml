@@ -1,18 +1,18 @@
 services:
-    transmission-openvpn:
-        cap_add:
-            - NET_ADMIN
-        volumes:
-            - '/mnt/array/Erebor/Torrents/:/data'
-            - './data:/config'
-        env_file:
-            - .env
-        environment:
-            - LOCAL_NETWORK=192.168.1.0/24
-        logging:
-            driver: json-file
-            options:
-                max-size: 10m
-        ports:
-            - 9091:9091
-        image: haugene/transmission-openvpn
+  transmission-openvpn:
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - "/mnt/array/Erebor/Torrents/:/data"
+      - "./data:/config"
+    env_file:
+      - .env
+    environment:
+      - LOCAL_NETWORK=192.168.1.0/24
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+    ports:
+      - 9091:9091
+    image: haugene/transmission-openvpn

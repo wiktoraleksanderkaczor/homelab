@@ -1,31 +1,31 @@
 services:
-    joplin_postgres:
-        image: postgres:16
-        volumes:
-            - ./data/postgres:/var/lib/postgresql/data
-        restart: unless-stopped
-        env_file:
-          - .env
-        networks:
-            - joplin-network
+  joplin_postgres:
+    image: postgres:16
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - joplin-network
 
-    joplin:
-        image: joplin/server:latest
-        depends_on:
-            - joplin_postgres
-        ports:
-            - "22300:22300"
-        restart: unless-stopped
-        env_file:
-          - .env
-        environment:
-            - APP_PORT=22300
-            - DB_CLIENT=pg
-            - POSTGRES_PORT=5432
-            - POSTGRES_HOST=joplin_postgres
-        networks:
-            - joplin-network
+  joplin:
+    image: joplin/server:latest
+    depends_on:
+      - joplin_postgres
+    ports:
+      - "22300:22300"
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - APP_PORT=22300
+      - DB_CLIENT=pg
+      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=joplin_postgres
+    networks:
+      - joplin-network
 
 networks:
-    joplin-network:
-        driver: bridge
+  joplin-network:
+    driver: bridge
