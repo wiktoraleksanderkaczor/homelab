@@ -1,0 +1,123 @@
+# Docker Compose file for running paperless from the docker container registry.
+# This file contains everything paperless needs to run.
+# Paperless supports amd64, arm and arm64 hardware.
+# All compose files of paperless configure paperless in the following way:
+#
+# - Paperless is (re)started on system boot, if it was running before shutdown.
+# - Docker volumes for storing data are managed by Docker.
+# - Folders for importing and exporting files are created in the same directory
+#   as this file and mounted to the correct folders inside the container.
+# - Paperless listens on port 8000.
+#
+# SQLite is used as the database. The SQLite file is stored in the data volume.
+#
+# In addition to that, this Docker Compose file adds the following optional
+# configurations:
+#
+# - Apache Tika and Gotenberg servers are started with paperless and paperless
+#   is configured to use these services. These provide support for consuming
+#   Office documents (Word, Excel, Power Point and their LibreOffice counter-
+#   parts.
+#
+# To install and update paperless with this file, do the following:
+#
+# - Copy this file as 'docker-compose.yml' and the files 'docker-compose.env'
+#   and '.env' into a folder.
+# - Run 'docker compose pull'.
+# - Run 'docker compose up -d'.
+#
+# For more extensive installation and update instructions, refer to the
+# documentation.
+
+services:
+  broker:
+    image: docker.io/library/redis:7
+    restart: unless-stopped
+    volumes:
+      - ./data/redis:/data
+
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      - broker
+      - gotenberg
+      - tika
+    ports:
+      - 9050:9050
+    volumes:
+      - ./data/paperless/data:/usr/src/paperless/data
+      - ./data/paperless/media:/usr/src/paperless/media
+      - ./export:/usr/src/paperless/export
+      - ./consume:/usr/src/paperless/consume
+    env_file: .env
+    environment:
+      PAPERLESS_PORT: 9050
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_TIKA_ENABLED: 1
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+      PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+
+  gotenberg:
+    image: docker.io/gotenberg/gotenberg:8.19
+    restart: unless-stopped
+    # The gotenberg chromium route is used to convert .eml files. We do not
+    # want to allow external content like tracking pixels or even javascript.
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=true
+      - --chromium-allow-list=file:///tmp/.*
+
+  tika:
+    image: docker.io/apache/tika:latest
+    restart: unless-stopped
+
+  paperless-ai:
+    image: clusterzx/paperless-ai
+    container_name: paperless-ai
+    network_mode: bridge
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges=true
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - PAPERLESS_AI_PORT=${PAPERLESS_AI_PORT:-3010}
+    ports:
+      - 3010:${PAPERLESS_AI_PORT:-3010}
+    volumes:
+      - ./data/paperless-ai:/app/data
+
+  paperless-docling:
+    build: ./paperless-docling
+    container_name: paperless-docling
+    ports:
+      - "9070:9070"
+    volumes:
+      - /tmp:/tmp
+      - ./data/docling/huggingface:/root/.cache/huggingface
+      - ./processing:/app/processing
+    env_file:
+      - .env
+    environment:
+      - PAPERLESS_API_URL=${PAPERLESS_API_URL:?PAPERLESS_API_URL is required}
+      - PAPERLESS_AUTH=${PAPERLESS_AUTH:?PAPERLESS_AUTH is required}
+      - TAG_NAME=${TAG_NAME}
+      - CHECK_INTERVAL=${CHECK_INTERVAL}
+      - DOCLING_PIPELINE=${DOCLING_PIPELINE}
+      - DOCLING_MODEL=${DOCLING_MODEL}
+      - DOCLING_DEVICE=${DOCLING_DEVICE}
+      - DOCLING_THREADS=${DOCLING_THREADS}
+      - DOCLING_PDF_BACKEND=${DOCLING_PDF_BACKEND}
+      - DOCLING_OCR_ENGINE=${DOCLING_OCR_ENGINE}
+      - DOCLING_EXTRA_ARGS=${DOCLING_EXTRA_ARGS}
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
